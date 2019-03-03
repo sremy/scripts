@@ -4,10 +4,10 @@
 nexus-uploader.py
 
 Allows mirroring local M2 repositories to a remote Nexus server with a single command.
-Supports: 
+Supports:
    - uploading of common classifiers (sources, javadocs) if available
    - using regex include pattern for artifactIds/groupIds
-   - recursively processing local repo, just point to the root 
+   - recursively processing local repo, just point to the root
    - only upload artifacts missing on server (with option to force if needed)
 
 Example:
@@ -21,7 +21,8 @@ import os.path as path
 import sys
 import argparse
 
-def list_files(root, ffilter = lambda x: True, recurse = True):
+
+def list_files(root, ffilter=lambda x: True, recurse=True):
     """ list all files matching a filter in a given dir with optional recursion. """
     for root, subdirs, files in os.walk(root):
         for f in filter(ffilter, files):
@@ -35,13 +36,13 @@ def m2_maven_info(root):
     for pom in list_files(root, lambda x: x.endswith(".pom")):
         rpath = path.dirname(pom).replace(root, '')
         rpath_parts = filter(lambda x: x != '', rpath.split(os.sep))
-        info = { 'path': path.dirname(pom), 'pom': path.basename(pom) }
+        info = {'path': path.dirname(pom), 'pom': path.basename(pom)}
         info['g'] = '.'.join(rpath_parts[:-2])
         info['a'] = rpath_parts[-2:-1][0]
         info['v'] = rpath_parts[-1:][0]
         # check for jar
         jarfile = pom.replace('.pom', '.jar')
-        if path.isfile(jarfile):            
+        if path.isfile(jarfile):
             info['jar'] = path.basename(jarfile)
             # check for sources
             sourcejar = jarfile.replace('.jar', '-sources.jar')
@@ -53,6 +54,7 @@ def m2_maven_info(root):
                 info['docs'] = path.basename(docjar)
         yield info
 
+
 def nexus_postform(minfo, repo_url, files, auth, form_params):
     url = "%s/%s" % (repo_url, 'nexus/service/local/artifact/maven/content')
     req = requests.post(url, files=files, auth=auth, data=form_params)
@@ -61,11 +63,11 @@ def nexus_postform(minfo, repo_url, files, auth, form_params):
         print "code=" + str(req.status_code) + ", msg=" + req.content
     else:
         print "Successfully uploaded: " + last_attached_file(files, minfo)
-        
+
 
 def artifact_exists(repo_url, repo_id, auth, artifact_path):
     url = "%s/nexus/content/repositories/%s/%s" % (repo_url, repo_id, artifact_path)
-    #print "Checking for: " + url 
+    #print "Checking for: " + url
     req = requests.head(url, auth=auth)
     if req.status_code == 404:
         return False
@@ -77,21 +79,23 @@ def artifact_exists(repo_url, repo_id, auth, artifact_path):
         print "Error checking status of: " + artifact_path
         return True
 
+
 def last_attached_file(files, minfo):
-    m2_path = "%s/%s/%s" % (minfo['g'].replace('.','/'), minfo['a'], minfo['v'])
-    return "%s/%s"  % (m2_path, files[-1][1][0])
+    m2_path = "%s/%s/%s" % (minfo['g'].replace('.', '/'), minfo['a'], minfo['v'])
+    return "%s/%s" % (m2_path, files[-1][1][0])
+
 
 def nexus_upload(maven_info, repo_url, repo_id, credentials=None, force=False):
     def encode_file(basename):
         fullpath = path.join(maven_info['path'], basename)
-        return ('file', (basename, open(fullpath, 'rb'))) 
+        return ('file', (basename, open(fullpath, 'rb')))
 
     files = []
-    payload = { 'hasPom':'true', 'r':repo_id }
+    payload = {'hasPom': 'true', 'r': repo_id}
     auth = None
     if credentials is not None:
         auth = HTTPBasicAuth(credentials[0], credentials[1])
-        
+
     # append file params
     files.append(encode_file(maven_info['pom']))
     if 'jar' in maven_info:
@@ -99,43 +103,51 @@ def nexus_upload(maven_info, repo_url, repo_id, credentials=None, force=False):
         payload.update({'e': 'jar'})
 
     last_artifact = last_attached_file(files, maven_info)
-    if force or not artifact_exists(repo_url, repo_id, auth, last_artifact) :
+    if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
         nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
 
     if 'source' in maven_info:
-        files = [ encode_file(maven_info['source']) ]
-        payload.update({'hasPom':'false', 'e':'jar', 'p':'jar', 'c':'sources', 'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
+        files = [encode_file(maven_info['source'])]
+        payload.update({'hasPom': 'false', 'e': 'jar', 'p': 'jar', 'c': 'sources',
+                        'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
         last_artifact = last_attached_file(files, maven_info)
         if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
             nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
 
     if 'docs' in maven_info:
-        files = [ encode_file(maven_info['docs']) ]
-        payload.update({'hasPom':'false', 'e':'jar', 'p':'jar', 'c':'javadoc', 'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
+        files = [encode_file(maven_info['docs'])]
+        payload.update({'hasPom': 'false', 'e': 'jar', 'p': 'jar', 'c': 'javadoc',
+                        'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
         last_artifact = last_attached_file(files, maven_info)
         if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
             nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
-            
+
 
 def gav(info):
     return (info['g'], info['a'], info['v'])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Easily upload multiple artifacts to a remote Nexus server.')
     parser.add_argument('repodirs', type=str, nargs='+',
                         help='list of repodirs to scan')
-    parser.add_argument('--repo-id', type=str, help='Repository ID (in Nexus) to u/l to.', required=True)
-    parser.add_argument('--auth',type=str, help='basicauth credentials in the form of username:password.')
-    parser.add_argument('--include-artifact','-ia', type=str, metavar='REGEX', help='regex to apply to artifactId')
-    parser.add_argument('--include-group', '-ig', type=str, metavar='REGEX', help='regex to apply to groupId')
-    parser.add_argument('--include-version', '-iv', type=str, metavar='REGEX', help='regex to apply to version')
-    parser.add_argument('--force-upload', '-F', action='store_true', help='force u/l to Nexus even if artifact exists.')
-    parser.add_argument('--repo-url', type=str, required=True, 
+    parser.add_argument('--repo-id', type=str, required=True,
+                        help='repository ID (in Nexus) to u/l to')
+    parser.add_argument('--auth', type=str, metavar='username:password',
+                        help='basicauth credentials in the form of username:password')
+    parser.add_argument('--include-artifact', '-ia', type=str, metavar='REGEX',
+                        help='regex to apply to artifactId')
+    parser.add_argument('--include-group', '-ig', type=str, metavar='REGEX',
+                        help='regex to apply to groupId')
+    parser.add_argument('--include-version', '-iv', type=str, metavar='REGEX',
+                        help='regex to apply to version')
+    parser.add_argument('--force-upload', '-F', action='store_true',
+                        help='force u/l to Nexus even if artifact exists')
+    parser.add_argument('--repo-url', type=str, required=True,
                         help="Nexus repo URL (e.g. http://localhost:8081)")
 
-
     args = parser.parse_args()
-    
+
     import re
     igroup_pat = None
     iartifact_pat = None
@@ -146,7 +158,7 @@ if __name__ == '__main__':
         iartifact_pat = re.compile(args.include_artifact)
     if args.include_version:
         iversion_pat = re.compile(args.include_version)
-        
+
     for repo in args.repodirs:
         print "Uploading content from [%s] to %s repo on %s" % (repo, args.repo_id, args.repo_url)
         for info in m2_maven_info(repo):
@@ -161,6 +173,8 @@ if __name__ == '__main__':
             # only include specific version if version regex supplied
             if iversion_pat and not iversion_pat.match(info['v']):
                 continue
-            
+
             print "\nProcessing: %s" % (gav(info),)
-            nexus_upload(info, args.repo_url, args.repo_id, credentials=tuple(args.auth.split(':')), force=args.force_upload)
+            nexus_upload(info, args.repo_url, args.repo_id,
+                         credentials=tuple(args.auth.split(':')),
+                         force=args.force_upload)
