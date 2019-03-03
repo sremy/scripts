@@ -35,7 +35,7 @@ def m2_maven_info(root):
     """ walks an on-disk m2 repo yielding a dict of pom/gav/jar info. """
     for pom in list_files(root, lambda x: x.endswith(".pom")):
         rpath = path.dirname(pom).replace(root, '')
-        rpath_parts = filter(lambda x: x != '', rpath.split(os.sep))
+        rpath_parts = [x for x in rpath.split(os.sep) if x != '']
         info = {'path': path.dirname(pom), 'pom': path.basename(pom)}
         info['g'] = '.'.join(rpath_parts[:-2])
         info['a'] = rpath_parts[-2:-1][0]
@@ -59,10 +59,10 @@ def nexus_postform(minfo, repo_url, files, auth, form_params):
     url = "%s/%s" % (repo_url, 'service/local/artifact/maven/content')
     req = requests.post(url, files=files, auth=auth, data=form_params)
     if req.status_code > 299:
-        print "ERROR communicating with Nexus!"
-        print "code=" + str(req.status_code) + ", msg=" + req.content
+        print("ERROR communicating with Nexus!")
+        print("code=" + str(req.status_code) + ", msg=" + req.content)
     else:
-        print "Successfully uploaded: " + last_attached_file(files, minfo)
+        print("Successfully uploaded: " + last_attached_file(files, minfo))
 
 
 def artifact_exists(repo_url, repo_id, auth, artifact_path):
@@ -72,11 +72,11 @@ def artifact_exists(repo_url, repo_id, auth, artifact_path):
     if req.status_code == 404:
         return False
     if req.status_code == 200:
-        print "Will *NOT* upload %s, artifact already exists" % (artifact_path)
+        print("Will *NOT* upload %s, artifact already exists" % (artifact_path))
         return True
     else:
         # for safety, return true if we cannot determine if file exists
-        print "Error checking status of: " + artifact_path
+        print("Error checking status of: " + artifact_path)
         return True
 
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
         iversion_pat = re.compile(args.include_version)
 
     for repo in args.repodirs:
-        print "Uploading content from [%s] to %s repo on %s" % (repo, args.repo_id, args.repo_url)
+        print("Uploading content from [%s] to %s repo on %s" % (repo, args.repo_id, args.repo_url))
         for info in m2_maven_info(repo):
             # only include specific groups if group regex supplied
             if igroup_pat and not igroup_pat.match(info['g']):
@@ -174,7 +174,7 @@ if __name__ == '__main__':
             if iversion_pat and not iversion_pat.match(info['v']):
                 continue
 
-            print "\nProcessing: %s" % (gav(info),)
+            print("\nProcessing: %s" % (gav(info),))
             nexus_upload(info, args.repo_url, args.repo_id,
                          credentials=tuple(args.auth.split(':')),
                          force=args.force_upload)
