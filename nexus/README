@@ -1,0 +1,35 @@
+Allows uploading a local M2 repository to a remote Nexus server
+  - Uploads also javadoc and sources
+  - Can filter jar with regex on group, artifact and version
+  - Forked from https://gist.github.com/omnisis/9ecae6baf161d19206a5420bddffe1fc
+
+Usage:
+nexus-uploader.py [-h] 
+                  [--include-group REGEX] 
+                  [--include-artifact REGEX]
+                  [--include-version REGEX]
+                  [--force-upload]
+                  --repo-url REPO_URL 
+                  --repo-id REPO_ID 
+                  [--auth USERNAME:PASSWORD]
+                  REPODIR [REPODIR...]
+
+positional arguments:
+  REPODIR              path to local M2 repository to scan
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --include-group REGEX, -ig REGEX
+                        regex to apply to groupId
+  --include-artifact REGEX, -ia REGEX
+                        regex to apply to artifactId
+  --include-version REGEX, -iv REGEX
+                        regex to apply to version
+  --force-upload, -F    force u/l to Nexus even if artifact already exists
+  --repo-url REPO_URL   Nexus repo URL (e.g. http://localhost:8081/nexus)
+  --repo-id REPO_ID     Nexus repository ID to u/l to (e.g. thirdparty)
+  --auth USERNAME:PASSWORD
+                        basicauth credentials in the form of username:password
+
+Example:
+ python nexus-uploader.py --repo-url "http://localhost:8081/nexus" --repo-id "thirdparty" --auth admin:admin123 ~/.m2/repository --include-group "^org.antlr$" --include-version "4.7.2"
