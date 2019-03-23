@@ -55,9 +55,9 @@ def m2_maven_info(root):
         yield info
 
 
-def nexus_postform(minfo, repo_url, files, auth, form_params):
+def nexus_postform(minfo, repo_url, files, auth, form_params, ignore_ssl_check):
     url = "%s/%s" % (repo_url, 'service/local/artifact/maven/content')
-    req = requests.post(url, files=files, auth=auth, data=form_params)
+    req = requests.post(url, files=files, auth=auth, data=form_params, verify=not ignore_ssl_check)
     if req.status_code > 299:
         print "ERROR communicating with Nexus!"
         print "code=" + str(req.status_code) + ", msg=" + req.content
@@ -65,10 +65,10 @@ def nexus_postform(minfo, repo_url, files, auth, form_params):
         print "Successfully uploaded: " + last_attached_file(files, minfo)
 
 
-def artifact_exists(repo_url, repo_id, auth, artifact_path):
+def artifact_exists(repo_url, repo_id, auth, artifact_path, ignore_ssl_check):
     url = "%s/content/repositories/%s/%s" % (repo_url, repo_id, artifact_path)
     #print "Checking for: " + url
-    req = requests.head(url, auth=auth)
+    req = requests.head(url, auth=auth, verify=not ignore_ssl_check)
     if req.status_code == 404:
         return False
     if req.status_code == 200:
@@ -85,7 +85,7 @@ def last_attached_file(files, minfo):
     return "%s/%s" % (m2_path, files[-1][1][0])
 
 
-def nexus_upload(maven_info, repo_url, repo_id, credentials=None, force=False):
+def nexus_upload(maven_info, repo_url, repo_id, credentials=None, force=False, ignore_ssl_check=False):
     def encode_file(basename):
         fullpath = path.join(maven_info['path'], basename)
         return ('file', (basename, open(fullpath, 'rb')))
@@ -103,24 +103,24 @@ def nexus_upload(maven_info, repo_url, repo_id, credentials=None, force=False):
         payload.update({'e': 'jar'})
 
     last_artifact = last_attached_file(files, maven_info)
-    if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
-        nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
+    if force or not artifact_exists(repo_url, repo_id, auth, last_artifact, ignore_ssl_check):
+        nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload, ignore_ssl_check=ignore_ssl_check)
 
     if 'source' in maven_info:
         files = [encode_file(maven_info['source'])]
         payload.update({'hasPom': 'false', 'e': 'jar', 'p': 'jar', 'c': 'sources',
                         'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
         last_artifact = last_attached_file(files, maven_info)
-        if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
-            nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
+        if force or not artifact_exists(repo_url, repo_id, auth, last_artifact, ignore_ssl_check):
+            nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload, ignore_ssl_check=ignore_ssl_check)
 
     if 'docs' in maven_info:
         files = [encode_file(maven_info['docs'])]
         payload.update({'hasPom': 'false', 'e': 'jar', 'p': 'jar', 'c': 'javadoc',
                         'g': maven_info['g'], 'a': maven_info['a'], 'v': maven_info['v']})
         last_artifact = last_attached_file(files, maven_info)
-        if force or not artifact_exists(repo_url, repo_id, auth, last_artifact):
-            nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload)
+        if force or not artifact_exists(repo_url, repo_id, auth, last_artifact, ignore_ssl_check):
+            nexus_postform(maven_info, repo_url, files=files, auth=auth, form_params=payload, ignore_ssl_check=ignore_ssl_check)
 
 
 def gav(info):
@@ -145,6 +145,8 @@ if __name__ == '__main__':
                         help='Nexus repository ID to u/l to (e.g. thirdparty)')
     parser.add_argument('--auth', type=str, metavar='username:password',
                         help='basicauth credentials in the form of username:password')
+    parser.add_argument('--ignore-ssl-check', '-k', action='store_true',
+                        help='ignore SSL/TLS certificate verification')
 
     args = parser.parse_args()
 
@@ -177,4 +179,4 @@ if __name__ == '__main__':
             print "\nProcessing: %s" % (gav(info),)
             nexus_upload(info, args.repo_url, args.repo_id,
                          credentials=tuple(args.auth.split(':')),
-                         force=args.force_upload)
+                         force=args.force_upload, ignore_ssl_check=args.ignore_ssl_check)

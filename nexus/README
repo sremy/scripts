@@ -4,14 +4,15 @@ Allows uploading a local M2 repository to a remote Nexus server
   - Forked from https://gist.github.com/omnisis/9ecae6baf161d19206a5420bddffe1fc
 
 Usage:
-nexus-uploader.py [-h] 
-                  [--include-group REGEX] 
+nexus-uploader.py [-h]
+                  [--include-group REGEX]
                   [--include-artifact REGEX]
                   [--include-version REGEX]
                   [--force-upload]
-                  --repo-url REPO_URL 
-                  --repo-id REPO_ID 
+                  --repo-url REPO_URL
+                  --repo-id REPO_ID
                   [--auth USERNAME:PASSWORD]
+                  [--ignore-ssl-check]
                   REPODIR [REPODIR...]
 
 positional arguments:
@@ -30,6 +31,8 @@ optional arguments:
   --repo-id REPO_ID     Nexus repository ID to u/l to (e.g. thirdparty)
   --auth USERNAME:PASSWORD
                         basicauth credentials in the form of username:password
+  --ignore-ssl-check, -k
+                        ignore SSL/TLS certificate verification
 
 Example:
  python nexus-uploader.py --repo-url "http://localhost:8081/nexus" --repo-id "thirdparty" --auth admin:admin123 ~/.m2/repository --include-group "^org.antlr$" --include-version "4.7.2"
