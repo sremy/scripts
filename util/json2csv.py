@@ -54,42 +54,56 @@ class my_dialect(csv.Dialect):
     quoting = csv.QUOTE_MINIMAL
 
 
+def read_json_file(json_file_path: str):
+    fp = open(json_file_path, 'r')
+    json_text = fp.read()
+    json_object = json.loads(json_text)
+    fp.close()
+    return json_object
+
+
+def write_csv_file(json_array_to_convert, csv_file_path: str, key_whitelist: list):
+    list_processed_data = []
+    header = OrderedSet()
+    for item in json_array_to_convert:
+        map_column_flatitem = {}
+        prefix = ""
+        flatten_item(map_column_flatitem, prefix, item, key_whitelist)
+        list_processed_data.append(map_column_flatitem)
+        header.update(map_column_flatitem.keys())
+
+    csv.register_dialect("my_dialect", my_dialect)
+    with open(csv_file_path, 'w+') as f:  # https://stackoverflow.com/a/1170297
+        #with open(csv_file_path, 'w+', newline='') as f: # prevents python to replace \n by \r\n on Windows
+        writer = csv.DictWriter(f, header, dialect="my_dialect")
+        writer.writeheader()
+        for map_row in list_processed_data:
+            writer.writerow(map_row)
+            #print(map_row)
+
+    print("[+] Completed writing CSV file with %d columns, %d lines" % (len(header), len(list_processed_data)))
+
+
+def main():
+    # Reading arguments
+    array_path = sys.argv[1]
+    json_file_path = sys.argv[2]
+    csv_file_path = sys.argv[3]
+    key_whitelist = None
+
+    json_object = read_json_file(json_file_path)
+
+    json_array_to_convert = jsonpath_get(json_object, array_path)
+    if json_array_to_convert is None:
+        sys.exit("[!] Array node [%s] not found" % array_path)
+
+    write_csv_file(json_array_to_convert, csv_file_path, key_whitelist)
+
+
 if __name__ == "__main__":
+
     if len(sys.argv) != 4:
         print("Usage: \npython json2csv.py <array_path> <input.json> <output.csv>\n")
         print("Example:\npython json2csv.py node/subnode/array_node input.json output.csv")
     else:
-        # Reading arguments
-        array_path = sys.argv[1]
-        json_file_path = sys.argv[2]
-        csv_file_path = sys.argv[3]
-        key_whitelist = None
-
-        fp = open(json_file_path, 'r')
-        json_text = fp.read()
-        json_object = json.loads(json_text)
-        fp.close()
-
-        json_array_to_convert = jsonpath_get(json_object, array_path)
-        if json_array_to_convert is None:
-            sys.exit("[!] Array node [%s] not found" % array_path)
-
-        list_processed_data = []
-        header = OrderedSet()
-        for item in json_array_to_convert:
-            map_column_flatitem = {}
-            prefix = ""
-            flatten_item(map_column_flatitem, prefix, item, key_whitelist)
-            list_processed_data.append(map_column_flatitem)
-            header.update(map_column_flatitem.keys())
-
-        csv.register_dialect("my_dialect", my_dialect)
-        with open(csv_file_path, 'w+') as f:  # https://stackoverflow.com/a/1170297
-        #with open(csv_file_path, 'w+', newline='') as f: # prevents python to replace \n by \r\n on Windows
-            writer = csv.DictWriter(f, header, dialect="my_dialect")
-            writer.writeheader()
-            for map_row in list_processed_data:
-                writer.writerow(map_row)
-                #print(map_row)
-
-        print("[+] Completed writing CSV file with %d columns, %d lines" % (len(header), len(list_processed_data)))
+        main()
