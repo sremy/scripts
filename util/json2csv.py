@@ -1,6 +1,7 @@
 import sys
 import json
 import csv
+import requests
 from ordered_set import OrderedSet
 
 """ Script to convert JSON file to CSV file """
@@ -62,6 +63,11 @@ def read_json_file(json_file_path: str):
     return json_object
 
 
+def read_json_url(json_file_path: str):
+    response = requests.get(json_file_path)
+    return response.json()
+
+
 def write_csv_file(json_array_to_convert, csv_file_path: str, key_whitelist: list):
     list_processed_data = []
     header = OrderedSet()
@@ -91,7 +97,10 @@ def main():
     csv_file_path = sys.argv[3]
     key_whitelist = None
 
-    json_object = read_json_file(json_file_path)
+    if json_file_path.startswith("http:") or json_file_path.startswith("https:"):
+        json_object = read_json_url(json_file_path)
+    else:
+        json_object = read_json_file(json_file_path)
 
     json_array_to_convert = jsonpath_get(json_object, array_path)
     if json_array_to_convert is None:
