@@ -53,7 +53,7 @@ MEMORY_TOTAL=$(echo $(free -m | grep Mem: | awk -F " " '{print $2/1024}') GB)
 # Memory Used procps-ng (Mem:       total        used        free      shared  buff/cache   available)
 MEMORY_USED=$(echo $(free -m | grep Mem: | awk -F " " '{print $3/1024}') GB)
 # Disk left
-DISK_LEFT=$(df -Ph | grep " /mnt" | awk '{ sub(/%/, "", $5); if ($5.0 > 85) {alert="'$col_warn'"} else {alert="'$col_value'"} {print alert $6, $4, (100-$5)"%\033[0m"}}' | sed ':next;N;$!bnext;s/\n/   /g')
+DISK_LEFT=$(df -Ph | grep " /mnt" | awk '{ sub(/%/, "", $5); if (int($5) > 85) {alert="'$col_warn'"} else {alert="'$col_value'"} {print alert $6, $4, (100-$5)"%\033[0m"}}' | sed ':next;N;$!bnext;s/\n/   /g')
 
 # Process count
 PROCCOUNT=$(ps -A --no-headers | wc -l)
